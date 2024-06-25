@@ -65,6 +65,26 @@ class Physics:
         vel = (nn_output_var[:,uid:uid+1]**2.0 + nn_output_var[:,vid:vid+1]**2.0) ** 0.5
         return vel
 
+    def surf_x(self, nn_input_var, nn_output_var, X):
+        """ dsdx
+        """
+        xid = self.input_var.index('x')
+        sid = self.output_var.index('s')
+
+        s_x = dde.grad.jacobian(nn_output_var, nn_input_var, i=sid, j=xid)
+
+        return s_x
+
+    def surf_y(self, nn_input_var, nn_output_var, X):
+        """ dsdy
+        """
+        yid = self.input_var.index('y')
+        sid = self.output_var.index('s')
+
+        s_y = dde.grad.jacobian(nn_output_var, nn_input_var, i=sid, j=yid)
+
+        return s_y
+
     def operator(self, pname):
         """ grab the pde operator
 

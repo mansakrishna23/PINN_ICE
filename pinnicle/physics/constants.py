@@ -9,8 +9,8 @@ class Constants():
         self.yts    = 3600.0*24*365     # year to second (s)
 
         # Typical range of variables
-        self.variable_lb = {'u': -1.0e4/self.yts, 'v':-1.0e4/self.yts, 's':-1.0e3, 'H':10.0,   'C':0.01,  'a': -5.0/self.yts}
-        self.variable_ub = {'u': 1.0e4/self.yts,  'v':1.0e4/self.yts,  's':2.5e3,  'H':2500.0, 'C':1.0e4, 'a':  5.0/self.yts}
+        self.variable_lb = {'u': -1.0e4/self.yts, 'v':-1.0e4/self.yts, 's':-1.0e3, 'H':10.0,   'C':0.01,  'a': -5.0/self.yts, 'sx': -500, 'sy':-500}
+        self.variable_ub = {'u': 1.0e4/self.yts,  'v':1.0e4/self.yts,  's':2.5e3,  'H':2500.0, 'C':1.0e4, 'a':  5.0/self.yts, 'sx': 500, 'sy':500}
         # add more if needed
         self.variable_lb['u_base'] = -1.0e4/self.yts
         self.variable_ub['u_base'] =  1.0e4/self.yts
