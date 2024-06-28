@@ -224,7 +224,177 @@ def plot_data(X, Y, im_data, axs=None, vranges={}, **kwargs):
         plt.colorbar(im, ax=axs[i], shrink=0.8)
     
     return axs
-    
+
+def triplot_solutions(pinn, feature, feat_title=none, cmap='jet', scale=1, figsize=(5, 4), colorbar_bins=10, mdata='issm'):
+    """ plotting reference solutions with given triangulation
+        default triangulation from issm
+    """
+    # initialize figure
+    fig, axs = plt.subplots(1, 1, figsize=figsize)
+
+    if feat_title == none:
+        if type(feature)==list:
+            raise typeerror('feat_title must be provided as a str input')
+        else:
+            feat_title = feature
+
+    # neural net input and outputs
+    input_names = pinn.nn.parameters.input_variables
+    output_names = pinn.nn.parameters.output_variables
+
+    # inputs
+    x_ref = pinn.model_data.data[mdata].x_dict
+    xref = x_ref[input_names[0]].flatten()[:,none]
+    for i in range(1, len(input_names)):
+        xref = np.hstack((xref, x_ref[input_names[i]].flatten()[:,none]))
+    meshx = np.squeeze(xref[:, 0])
+    meshy = np.squeeze(xref[:, 1])
+
+    # check if the feature provided is in model_data provided
+    data_checker = true
+    if type(feature)==list:
+        for feat in feature:
+            if feat not in pinn.model_data.data[mdata].data_dict.keys():
+                data_checker = false
+                break
+    else:
+        if feature not in pinn.model_data.data[mdata].data_dict.keys():
+            data_checker = false
+
+    # raise error if reference solution not provided
+    if data_checker == false:
+        raise keyerror('feature not found in data_dict')
+
+    # reference solutions
+    x_sol = pinn.model_data.data[mdata].data_dict
+    sol = x_sol[output_names[0]].flatten()[:,none]
+    for i in range(1, len(output_names)):
+        sol = np.hstack((sol, x_sol[output_names[i]].flatten()[:,none]))
+
+    # triangulation / elements
+    if pinn.model_data.data[mdata].mesh_dict == {}:
+        raise keyerror('elements not found in mesh_dict')
+    else:
+        if pinn.params.param_dict['data'][mdata]['data_path'].endswith('mat'):
+            elements = pinn.model_data.data[mdata].mesh_dict['elements']-1
+        else:
+            elements = elements = pinn.model_data.data[mdata].mesh_dict['elements']
+        triangles = mpl.tri.triangulation(meshx, meshy, elements)
+
+    # grab feature id
+    ref_sol = np.zeros_like(np.squeeze(sol[:, 0:1]*scale))
+    if type(feature)==list:
+        for feat in feature:
+            fid = output_names.index(feat)
+            ref_sol += (np.squeeze(sol[:, fid:fid+1]*scale))**2
+        ref_sol = np.sqrt(ref_sol)
+    else:
+        fid = output_names.index(feature)
+        ref_sol = np.squeeze(sol[:, fid:fid+1]*scale)
+
+    [cmin, cmax] = [0.9*np.min(ref_sol), 1.1*np.max(ref_sol)]
+    title = feat_title + r"$_{ref}$"
+    axes = axs.tripcolor(triangles, ref_sol, cmap=cmap, norm=colors.normalize(vmin=cmin, vmax=cmax))
+
+    # common settings
+    axs.set_title(title, fontsize=14)
+    axs.axis('off')
+    cb = plt.colorbar(axes, ax=axs)
+    cb.ax.tick_params(labelsize=12)
+    cb.locator = ticker.maxnlocator(nbins=colorbar_bins)
+    cb.update_ticks()
+
+    return fig, axs
+            
+def triplot_pred(pinn, feature, feat_title=None, cmap='jet', scale=1, figsize=(5, 4), colorbar_bins=10, mdata='ISSM', show_tracks=False):
+    """plotting predictions with triangulation, default ISSM triangulation
+    """
+    # initialize figure
+    fig, axs = plt.subplots(1, 1, figsize=figsize)
+
+    if feat_title==None:
+        if type(feature)==list:
+            raise TypeError('feat_title must be provided as str input')
+        else:
+            feat_title = feature
+
+    # neural nets output and inputs
+    input_names = pinn.nn.parameters.input_variables
+    output_names = pinn.nn.parameters.output_variables
+
+    # inputs
+    X_ref = pinn.model_data.data[mdata].X_dict
+    xref = X_ref[input_names[0]].flatten()[:,None]
+    for i in range(1, len(input_names)):
+        xref = np.hstack((xref, X_ref[input_names[i]].flatten()[:,None]))
+    meshx = np.squeeze(xref[:, 0])
+    meshy = np.squeeze(xref[:, 1])
+
+    # predictions
+    pred = pinn.model.predict(xref)
+
+    # triangles / elements
+    if pinn.model_data.data[mdata].mesh_dict == {}:
+        raise KeyError('"elements" key not found in the mesh_dict')
+    else:
+        if pinn.params.param_dict['data'][mdata]['data_path'].endswith('mat'):
+            elements = pinn.model_data.data[mdata].mesh_dict['elements']-1
+        else:
+            elements = pinn.model_data.data[mdata].mesh_dict['elements']
+        triangles = mpl.tri.Triangulation(meshx, meshy, elements)
+
+    # grab feature id
+    pred_sol = np.zeros_like(np.squeeze(pred[:, 0:1]*scale))
+    if type(feature)==list:
+        for feat in feature:
+            fid = output_names.index(feat)
+            pred_sol += (np.squeeze(pred[:, fid:fid+1]*scale))**2
+        pred_sol = np.sqrt(pred_sol)
+    else:
+        fid = output_names.index(feature)
+        pred_sol = np.squeeze(pred[:, fid:fid+1]*scale)
+
+    [cmin, cmax] = [0.9*np.min(pred_sol), 1.1*np.max(pred_sol)]
+    title = feat_title+r"$_{pred}$"
+    axes = axs.tripcolor(triangles, pred_sol, cmap=cmap, norm=colors.Normalize(vmin=cmin, vmax=cmax))
+
+    file_checker = True
+    if show_tracks==True:
+        if type(feature)==list:
+            raise TypeError('only single input feature inputs allowed, must be str input')
+        else:
+            for m in pinn.params.param_dict['data'].keys():
+                dsize = pinn.params.param_dict['data'][m]['data_size']
+                if feature in dsize.keys() and dsize[feature] != None:
+                    filepath = pinn.params.param_dict['data'][m]['data_path']
+                    print('tracks pulled from ', filepath)
+                    if filepath.endswith('md.mat'):
+                        file_checker = False
+                    elif filepath.endswith('mat'):
+                        track_file = sio.loadmat(filepath)
+                    else:
+                        file_checker = False
+                    
+                    if file_checker == False:
+                        raise NotImplementedError('tracks cannot be pulled from file, not implemented. use .mat file instead')
+
+                    xx = track_file['x']
+                    yy = track_file['y']
+                    feat = track_file[pinn.params.param_dict['data'][m]['name_map'][feature]]
+                else:
+                    continue
+            axes = axs.scatter(xx, yy, s=1, c=feat, cmap=cmap, vmin=cmin, vmax=cmax)
+
+    # common settings
+    axs.set_title(title, fontsize=14)
+    axs.axis('off')
+    cb = plt.colorbar(axes, ax=axs)
+    cb.ax.tick_params(labelsize=12)
+    cb.locator = ticker.MaxNLocator(nbins=colorbar_bins)
+    cb.update_ticks()
+
+    return fig, axs
+
 def plot_similarity(pinn, feature_name, feat_title=None, sim='MAE', cmap='jet', scale=1, cols=[0, 1, 2], cbar_bins=10):
     """
     plotting the similarity between reference and predicted
@@ -414,7 +584,7 @@ def plot_residuals(pinn, cmap='RdBu', cbar_bins=10, cbar_limits=[-5e3, 5e3]):
 
     return fig, axs
 
-def tripcolor_similarity(pinn, feature_name, feat_title=None, sim='MAE', cmap='jet', scale=1, colorbar_bins=10):
+def tripcolor_similarity(pinn, feature_name, feat_title=None, sim='MAE', cmap='jet', scale=1, colorbar_bins=10, show_tracks=False):
     """tripcolor similarity, plot with ISSM triangulation
     """
     if feat_title == None:
@@ -502,6 +672,8 @@ def tripcolor_similarity(pinn, feature_name, feat_title=None, sim='MAE', cmap='j
             axes = axs[c].tripcolor(triangles, diff_map, cmap='RdBu', norm=colors.Normalize(vmin=-1*clim, vmax=clim))
         else:
             axes = axs[c].tripcolor(triangles, data_list[c], cmap=cmap, norm=colors.Normalize(vmin=cmin, vmax=cmax))
+            if show_tracks == True:
+                print('needs to be fixed')
             title = title_list[c]
 
         # common settings
